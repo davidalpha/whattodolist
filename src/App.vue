@@ -8,17 +8,25 @@
     <div class="title">Do something!</div>
     <button class="add" @click="allItems">Show all!</button>
     <button class="add" @click="randomItem">Gimme something!</button>
-    <div v-if="showRandomItem !== ''" id="showRandomItem">
-      <div class="item">
-        <div v-if="this.$store.getters.getItems && this.$store.getters.getItems.length > 0">
-          {{ chosenItem.title }}<br /><br /><button class="delete" @click="deleteItem(chosenItem.id)">Done!</button>
+    <div v-if="showRandomItem !== '' && chosenItem" id="showRandomItem">
+     <div v-for="item in this.$store.getters.getItems" :key="item.id">
+       <div v-if="item.id == chosenItem && item.status == 'todo'">
+        <div class="item">
+          {{ item.title }}<br /><br /><button class="delete" @click="completeItem(item.id)">Done!</button>
+          <button class="delete" @click="deleteItem(item.id)">Delete!</button>
         </div>
-      </div>
+       </div>
+     </div>
     </div>
     <div v-if="showAllItems !== ''" id="showAllItems">
       <div v-if="this.$store.getters.getItems && this.$store.getters.getItems.length > 0">
-        <div class="item" v-for="item in this.$store.getters.getItems" :key="item.id">
-          {{ item.title }}<br /><br /><button class="delete" @click="deleteItem(item.id)">Done!</button>
+        <div v-for="item in this.$store.getters.getItems" :key="item.id">
+          <div v-if="item.status == 'todo'">
+            <div class="item">
+             {{ item.title }}<br /><br /><button class="delete" @click="completeItem(item.id)">Done!</button>
+             <button class="delete" @click="deleteItem(item.id)">Delete!</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -40,7 +48,8 @@ export default {
       results: '',
       showRandomItem: '',
       showAllItems: '',
-      chosenItem: ''
+      chosenItem: '',
+      showActive: ''
     }
   },
   methods: {
@@ -51,8 +60,13 @@ export default {
     randomItem: function () {
       this.showAllItems = '';
       this.showRandomItem = true;
-      var chosenNumber = Math.floor(Math.random() * this.$store.getters.getItems.length);
-      this.chosenItem = this.$store.getters.getItems[chosenNumber];
+      let allItems = this.$store.getters.getItems
+      if (allItems !== null)
+      {
+        let activeItems = this.$store.getters.getItems.filter((e) => e.status == 'todo')
+        var chosenNumber = Math.floor(Math.random() * activeItems.length)
+        this.chosenItem = activeItems[chosenNumber].id
+      }
     },
     addToDo: function () {
       this.errors = ''
@@ -61,7 +75,8 @@ export default {
       if (this.myTodo !== '') {
         db.collection('items').add({
           title: this.myTodo,
-          created: Date.now()
+          created: Date.now(),
+          status: 'todo'
         }).then((response) => {
           if (response) {
             this.results = 'Added!'
@@ -75,24 +90,28 @@ export default {
         this.errors = 'empty title field'
       }
     },
-    deleteItem: function (id) {
+    completeItem: function (id) {
+      var self = this
       if (id) {
-      console.log(id);
-      var self = this;
       let completedItem = db.collection("items").doc(id)
-      console.log(completedItem)
-      completedItem.update({status: 'done'})
+      completedItem.update({status: 'done'}).then(function()
+      {
+          self.results = 'Deleted!'
+      }).catch(function(error) {
+        console.log(error)
+          self.errors = error
+      })
+      } else {
+        this.error = 'Invalid ID'
       }
     },
-/**
     deleteItem: function (id) {
     if (id) {
-    console.log(id);
     var self = this;
     db.collection("items").doc(id).delete().then(function()
      {
         self.results = 'Deleted!'
-    }).catch(function(error) {
+     }).catch(function(error) {
       console.log(error)
         self.errors = error
     })
@@ -100,9 +119,7 @@ export default {
       this.error = 'Invalid ID'
     }
    }
-    **/
  }
-
 }
 </script>
 
